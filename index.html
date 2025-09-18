@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>nDAO Governance Portal</title>
+    
+    <!-- EXTERNAL STYLES & FONTS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+
+    <!-- VUE 3 FRAMEWORK -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+</head>
+<body class="text-gray-800">
+
+    <!-- Vue application will mount here -->
+    <div id="app" v-cloak>
+        <!-- APP-WIDE MESSAGE TOAST -->
+        <div v-if="message.text" class="fixed bottom-5 right-5 z-50 px-5 py-3 rounded-lg shadow-xl text-white font-semibold" :class="message.type === 'success' ? 'bg-green-500' : 'bg-red-500'">
+            {{ message.text }}
+        </div>
+        
+        <!-- MAIN APPLICATION -->
+        <div>
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                <!-- HEADER -->
+                <header class="flex flex-wrap justify-between items-center mb-8 pb-4 border-b border-gray-200 gap-4">
+                    <div class="flex items-center space-x-3">
+                        <svg class="w-10 h-10 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0012 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75z" /></svg>
+                        <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">nDAO Governance Portal</h1>
+                    </div>
+                    <div>
+                        <button v-if="!auth.actor" @click="connectWallet" :disabled="!isSdkReady" class="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-indigo-700 transition duration-300 disabled:bg-gray-400 disabled:cursor-not-allowed">
+                            {{ isSdkReady ? 'Connect Wallet' : 'Loading SDK...' }}
+                        </button>
+                        <div v-else class="flex items-center space-x-4 bg-white p-2 rounded-lg border shadow-sm">
+                             <span class="font-semibold text-gray-700">{{ auth.actor }}</span>
+                            <button @click="logout" class="text-sm bg-gray-200 text-gray-700 font-semibold py-1 px-3 rounded-md hover:bg-gray-300">
+                                Disconnect
+                            </button>
+                        </div>
+                    </div>
+                </header>
+
+                <main class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <!-- PROPOSALS (Main Column) -->
+                    <div class="lg:col-span-2">
+                        <div class="flex justify-between items-center mb-6">
+                            <h2 class="text-2xl font-bold text-gray-900">Proposals</h2>
+                            <button @click="showCreateProposalModal = true" :disabled="!auth.actor" class="bg-green-500 text-white font-semibold py-2 px-5 rounded-lg shadow-md hover:bg-green-600 transition flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>
+                                <span>Create Proposal</span>
+                            </button>
+                        </div>
+                        
+                        <!-- DATABASE ERROR STATE -->
+                        <div v-if="dbError" class="text-center p-10 bg-red-50 border border-red-200 rounded-lg shadow-md">
+                            <h3 class="text-xl font-bold text-red-800">Database Error</h3>
+                            <p class="mt-2 text-md text-red-700">{{ dbError }}</p>
+                            <p class="mt-4 text-sm text-gray-600">Please ensure your Firebase configuration is correct and the service is available.</p>
+                        </div>
+
+                        <div v-if="isLoading && !dbError" class="text-center p-10 bg-white rounded-lg shadow-md"><p class="text-lg text-gray-500">Loading proposals...</p></div>
+                        <div v-else-if="!dbError && proposals.length === 0" class="text-center py-16 px-6 bg-white rounded-lg shadow-md">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                            <h3 class="mt-2 text-xl font-medium text-gray-900">No proposals found</h3>
+                            <p class="mt-1 text-md text-gray-500">Be the first to create one!</p>
+                        </div>
+                        <div v-else-if="!dbError" class="space-y-4">
+                           <div v-for="proposal in proposals" :key="proposal.id" @click="selectProposal(proposal)" class="bg-white p-5 rounded-lg shadow-sm border border-gray-200 cursor-pointer hover:shadow-md transition-shadow duration-200">
+                                <div class="flex justify-between items-start mb-2">
+                                    <h3 class="text-xl font-bold text-gray-800">{{ proposal.title }}</h3>
+                                    <span class="flex-shrink-0 px-3 py-1 text-xs font-semibold rounded-full" :class="{ 'bg-green-100 text-green-800': proposal.status === 'active', 'bg-red-100 text-red-800': proposal.status === 'closed' }">{{ proposal.status.charAt(0).toUpperCase() + proposal.status.slice(1) }}</span>
+                                </div>
+                                <p class="text-gray-600 mb-4 h-12 overflow-hidden">{{ proposal.description.substring(0, 150) + (proposal.description.length > 150 ? '...' : '') }}</p>
+                                <div class="text-sm text-gray-500">
+                                    <p>Ends: <span class="font-medium">{{ getCountdown(proposal.endTime) }}</span></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- WALLET INFO (Sidebar) -->
+                    <aside class="space-y-6">
+                        <div class="bg-white p-6 rounded-lg shadow-md border">
+                            <h3 class="text-lg font-bold text-gray-900 mb-4 border-b pb-2">Your Wallet</h3>
+                            <div v-if="auth.actor" class="space-y-3">
+                                <div><label class="text-sm font-medium text-gray-500">Status</label><p class="font-semibold text-green-600">Connected</p></div>
+                                <div><label class="text-sm font-medium text-gray-500">Voting Power</label><p class="text-2xl font-bold text-indigo-600">{{ ubqtxBalance.toLocaleString(undefined, {maximumFractionDigits: 4}) }} $UBQTX</p></div>
+                            </div>
+                             <div v-else class="text-center py-4"><p class="text-gray-600">Connect your wallet to participate.</p></div>
+                        </div>
+                    </aside>
+                </main>
+            </div>
+            
+            <!-- Other Modals -->
+            <transition name="modal"><div v-if="selectedProposal" @click.self="selectedProposal = null" class="fixed inset-0 z-40 bg-black bg-opacity-60 flex items-center justify-center p-4"><transition name="modal-content"><div v-if="selectedProposal" class="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-auto" @click.stop><div class="p-6 sm:p-8"><div class="flex justify-between items-start"><h2 class="text-2xl font-bold mb-4">{{ selectedProposal.title }}</h2><button @click="selectedProposal = null" class="text-gray-400 hover:text-gray-600 text-3xl font-bold">&times;</button></div><p class="text-gray-600 mb-6 whitespace-pre-wrap">{{ selectedProposal.description }}</p><div v-if="selectedProposal.status === 'active'"><h3 class="font-semibold mb-3 text-lg">Cast Your Vote</h3><div class="space-y-3 mb-6"><div v-for="option in selectedProposal.options" :key="option" @click="selectedVoteOption = option" class="border-2 p-4 rounded-lg cursor-pointer flex justify-between items-center transition" :class="{ 'border-indigo-600 bg-indigo-50': selectedVoteOption === option, 'border-gray-300': selectedVoteOption !== option }"><span class="font-medium">{{ option }}</span><div class="w-5 h-5 rounded-full border-2" :class="{ 'bg-indigo-600 border-indigo-600': selectedVoteOption === option, 'border-gray-300': selectedVoteOption !== option }"></div></div></div><button @click="castVote" class="w-full bg-indigo-600 text-white font-bold py-3 rounded-lg shadow-md hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed" :disabled="!auth.actor || !selectedVoteOption || isVoting || ubqtxBalance <= 0"><span v-if="isVoting">Broadcasting...</span><span v-else-if="ubqtxBalance > 0">Vote with {{ ubqtxBalance.toFixed(4) }} $UBQTX</span><span v-else>Insufficient Balance</span></button><p v-if="!auth.actor" class="text-center text-sm text-red-500 mt-2">Connect wallet to vote.</p></div><div class="mt-6"><h3 class="font-semibold mb-3 text-lg">Current Results</h3><div class="space-y-4"><div v-for="option in selectedProposal.options" :key="option"><div><div class="flex justify-between items-center mb-1 text-sm"><span class="font-medium">{{ option }}</span><span class="text-gray-500">{{ (getVotePercentage(option) * 100).toFixed(2) }}% ({{ (selectedProposal.votes[option] || 0).toLocaleString() }} $UBQTX)</span></div><div class="w-full bg-gray-200 rounded-full h-2.5"><div class="bg-indigo-600 h-2.5 rounded-full progress-bar-fill" :style="{ width: (getVotePercentage(option) * 100) + '%' }"></div></div></div></div></div><p class="text-sm text-gray-500 mt-3">Total Votes: {{ totalVotes.toLocaleString() }} $UBQTX</p></div></div></div></transition></div></transition>
+            <transition name="modal"><div v-if="showCreateProposalModal" @click.self="showCreateProposalModal = false" class="fixed inset-0 z-40 bg-black bg-opacity-60 flex items-center justify-center p-4"><transition name="modal-content"><div v-if="showCreateProposalModal" class="bg-white rounded-lg shadow-xl w-full max-w-lg mx-auto" @click.stop><div class="p-6"><div class="flex justify-between items-start"><h2 class="text-2xl font-bold mb-4">Create New Proposal</h2><button @click="showCreateProposalModal = false" class="text-gray-400 hover:text-gray-600 text-3xl font-bold">&times;</button></div><form @submit.prevent="submitProposal"><div class="mb-4"><label class="block text-sm font-medium text-gray-700 mb-1">Title</label><input type="text" v-model="newProposal.title" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500" required></div><div class="mb-4"><label class="block text-sm font-medium text-gray-700 mb-1">Description</label><textarea v-model="newProposal.description" rows="4" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500" required></textarea></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">Voting Duration (days)</label><input type="number" v-model.number="newProposal.duration" min="1" max="30" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500" required></div><div class="flex justify-end space-x-3"><button type="button" @click="showCreateProposalModal = false" class="bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300">Cancel</button><button type="submit" class="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed" :disabled="isSubmitting">{{ isSubmitting ? 'Submitting...' : 'Submit Proposal' }}</button></div></form></div></div></transition></div></transition>
+        </div>
+    </div>
+
+    <!-- SCRIPT DEPENDENCIES -->
+    <script src="https://unpkg.com/@proton/web-sdk@4.3.5/dist/web-sdk.min.js"></script>
+    <script src="main.js" type="module"></script>
+</body>
+</html>
+
