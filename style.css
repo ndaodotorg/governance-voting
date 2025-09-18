@@ -1,0 +1,36 @@
+body { 
+    font-family: 'Inter', sans-serif; 
+    background-color: #f4f5f7; 
+}
+
+[v-cloak] { 
+    display: none; 
+}
+
+.modal-enter-active, 
+.modal-leave-active { 
+    transition: opacity 0.3s ease; 
+}
+
+.modal-enter-from, 
+.modal-leave-to { 
+    opacity: 0; 
+}
+
+.modal-content-enter-active { 
+    transition: all 0.3s ease; 
+}
+
+.modal-content-leave-active { 
+    transition: all 0.3s ease; 
+}
+
+.modal-content-enter-from, 
+.modal-content-leave-to { 
+    transform: translateY(-20px) scale(0.95); 
+    opacity: 0; 
+}
+
+.progress-bar-fill { 
+    transition: width 0.5s ease-in-out; 
+}
